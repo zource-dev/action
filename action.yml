@@ -38,12 +38,12 @@ runs:
   using: 'composite'
   steps:
     - name: Checkout repository 📥
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         token: ${{ inputs.github_token }}
 
     - name: Setup Node.js 🛠️
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node_version }}
         registry-url: 'https://registry.npmjs.org/'
@@ -97,7 +97,7 @@ runs:
 
     - name: Upload test coverage 📈
       if: inputs.codecov_token != ''
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         token: ${{ inputs.codecov_token }}
 
