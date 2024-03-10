@@ -8,6 +8,11 @@ inputs:
   github_token:
     description: 'GitHub token for repository checkout'
     required: true
+  build:
+    description: 'Commands to run build'
+    required: false
+    default: |
+      pnpm run build
   test:
     description: 'Commands to run tests'
     required: false
@@ -54,10 +59,12 @@ runs:
       run: |
         node --version
         pnpm --version
+      shell: bash
 
     - name: Install dependencies 🔩
       run: |
         pnpm install --frozen-lockfile
+      shell: bash
 
     - name: Check updates 🔍
       id: updates
@@ -75,14 +82,18 @@ runs:
         else
           echo "No updates were applied to package.json."
         fi
+      shell: bash
 
     - name: Run build process 🏗️
-      run: pnpm build
+      run: |
+          ${{ inputs.build }}
+      shell: bash
 
     - name: Run testing 🧪
       if: inputs.test != ''
       run: |
           ${{ inputs.test }}
+      shell: bash
 
     - name: Upload test coverage 📈
       if: inputs.codecov_token != ''
@@ -98,15 +109,18 @@ runs:
         git add --all
         git commit -am "autoupdate"
         pnpm version patch
+      shell: bash
 
     - name: Push ⬆️
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
         git push
         git push --tags
+      shell: bash
 
     - name: Publish 🚀
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
         echo "//registry.npmjs.org/:_authToken=${{ inputs.npm_token }}" > .npmrc
         pnpm publish
+      shell: bash
