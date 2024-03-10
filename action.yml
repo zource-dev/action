@@ -1,0 +1,112 @@
+name: 'CI/CD Pipeline'
+description: 'Performs CI/CD tasks for Node.js projects'
+
+inputs:
+  node_version:
+    description: 'Node.js version to use'
+    required: true
+  github_token:
+    description: 'GitHub token for repository checkout'
+    required: true
+  test:
+    description: 'Commands to run tests'
+    required: false
+    default: |
+      pnpm run test
+  autoupdate:
+    description: 'Checks updates (latest,minor,patch) and publish if applied'
+    required: false
+  username:
+    description: 'Github username to commit'
+    required: false
+  email:
+    description: 'User email to commit'
+    required: false
+  npm_token:
+    description: 'Npm token to publish updates'
+    required: false
+  codecov_token:
+    description: 'Codecov token for uploading coverage'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository 📥
+      uses: actions/checkout@v3
+      with:
+        token: ${{ inputs.github_token }}
+
+    - name: Setup Node.js 🛠️
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ inputs.node_version }}
+        registry-url: 'https://registry.npmjs.org/'
+
+    - name: Install pnpm 📦
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+        run_install: false
+
+    - name: Environment log  ℹ️
+      id: env
+      run: |
+        node --version
+        pnpm --version
+
+    - name: Install dependencies 🔩
+      run: |
+        pnpm install --frozen-lockfile
+
+    - name: Check updates 🔍
+      id: updates
+      if: inputs.autoupdate != ''
+      run: |
+        if [ -z "${{ inputs.username }}" ] || [ -z "${{ inputs.email }}" ] || [ -z "${{ inputs.npm_token }}" ]; then
+          echo "Ensure username, email, and npm_token are set for autoupdate."
+          exit 1
+        fi
+        npx npm-check-updates -u --target ${{ inputs.autoupdate }}
+        if git status --porcelain | grep -q "package.json"; then
+          echo "Updates were applied to package.json."
+          pnpm install
+          echo "::set-output name=PUBLISH::true"
+        else
+          echo "No updates were applied to package.json."
+        fi
+
+    - name: Run build process 🏗️
+      run: pnpm build
+
+    - name: Run testing 🧪
+      if: inputs.test != ''
+      run: |
+          ${{ inputs.test }}
+
+    - name: Upload test coverage 📈
+      if: inputs.codecov_token != ''
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ inputs.codecov_token }}
+
+    - name: Commit 💾
+      if: steps.updates.outputs.PUBLISH == 'true'
+      run: |
+        git config --global user.email ${{ inputs.email }}
+        git config --global user.name ${{ inputs.username }}
+        git add --all
+        git commit -am "autoupdate"
+        pnpm version patch
+
+    - name: Push ⬆️
+      if: steps.updates.outputs.PUBLISH == 'true'
+      run: |
+        git push
+        git push --tags
+
+    - name: Publish 🚀
+      if: steps.updates.outputs.PUBLISH == 'true'
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${{ inputs.npm_token }}" > .npmrc
+        pnpm publish
