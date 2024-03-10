@@ -16,6 +16,9 @@ jobs:
           email: github@github.com
           npm_token: ${{ secrets.NPM_TOKEN }}
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
+          build: |
+            pnpm codegen
+            pnpm build
           test: |
             pnpm lint
             pnpm test
