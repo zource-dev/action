@@ -21,6 +21,10 @@ inputs:
   autoupdate:
     description: 'Checks updates (latest,minor,patch) and publish if applied'
     required: false
+  branch:
+    description: 'Branch to push'
+    required: false
+    default: master
   username:
     description: 'Github username to commit'
     required: false
@@ -78,7 +82,7 @@ runs:
         if git status --porcelain | grep -q "package.json"; then
           echo "Updates were applied to package.json."
           pnpm install --no-frozen-lockfile
-          echo "::set-output name=PUBLISH::true"
+          echo "PUBLISH=true" >> $GITHUB_OUTPUT
         else
           echo "No updates were applied to package.json."
         fi
@@ -104,16 +108,11 @@ runs:
     - name: Commit 💾
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
-        git config --global user.email ${{ inputs.email }}
-        git config --global user.name ${{ inputs.username }}
+        git config --global user.email "${{ inputs.email }}"
+        git config --global user.name "${{ inputs.username }}"
         git add --all
         git commit -am "autoupdate"
         pnpm version patch
-      shell: bash
-
-    - name: Push ⬆️
-      if: steps.updates.outputs.PUBLISH == 'true'
-      run: |
         git push
         git push --tags
       shell: bash
@@ -122,5 +121,6 @@ runs:
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
         echo "//registry.npmjs.org/:_authToken=${{ inputs.npm_token }}" > .npmrc
-        pnpm publish
+        npm publish
+        rm .npmrc
       shell: bash
