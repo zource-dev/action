@@ -77,7 +77,7 @@ runs:
         npx npm-check-updates -u --target ${{ inputs.autoupdate }}
         if git status --porcelain | grep -q "package.json"; then
           echo "Updates were applied to package.json."
-          pnpm install
+          pnpm install --no-frozen-lockfile
           echo "::set-output name=PUBLISH::true"
         else
           echo "No updates were applied to package.json."
