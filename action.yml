@@ -5,6 +5,10 @@ inputs:
   node_version:
     description: 'Node.js version to use'
     required: true
+  pnpm_version:
+    description: 'PNPM version to use'
+    required: false
+    default: '9'
   github_token:
     description: 'GitHub token for repository checkout'
     required: true
@@ -55,7 +59,7 @@ runs:
     - name: Install pnpm 📦
       uses: pnpm/action-setup@v3
       with:
-        version: 8
+        version: ${{ inputs.pnpm_version }}
         run_install: false
 
     - name: Environment log  ℹ️
