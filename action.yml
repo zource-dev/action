@@ -8,7 +8,7 @@ inputs:
   pnpm_version:
     description: 'PNPM version to use'
     required: false
-    default: '9'
+    default: ''
   github_token:
     description: 'GitHub token for repository checkout'
     required: true
