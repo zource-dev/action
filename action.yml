@@ -112,7 +112,7 @@ runs:
 
     - name: Upload test coverage 📈
       if: inputs.codecov_token != ''
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ inputs.codecov_token }}
 
