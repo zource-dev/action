@@ -79,8 +79,8 @@ runs:
       id: updates
       if: ${{ inputs.autoupdate != null && github.ref == format('refs/heads/{0}', inputs.branch) }}
       run: |
-        if [[ ${{ steps.env.outputs.VERSION }} =~ ^[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9]+$ ]]; then
-          echo "${{ steps.env.outputs.VERSION }} is not a release"
+        if ! [[ "${{ steps.env.outputs.VERSION }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "${{ steps.env.outputs.VERSION }} is not a release version"
           exit 0
         fi
         echo "AUTOUPDATE=${{ inputs.autoupdate }}"
@@ -132,6 +132,6 @@ runs:
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
         echo "//registry.npmjs.org/:_authToken=${{ inputs.npm_token }}" > .npmrc
-        npm publish
+        pnpm publish
         rm .npmrc
       shell: bash
