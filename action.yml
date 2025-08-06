@@ -131,7 +131,7 @@ runs:
     - name: Publish 🚀
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
-        echo "//registry.npmjs.org/:_authToken=${{ inputs.npm_token }}" > .npmrc
         pnpm publish
-        rm .npmrc
       shell: bash
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
