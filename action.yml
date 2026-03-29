@@ -41,23 +41,26 @@ inputs:
   codecov_token:
     description: 'Codecov token for uploading coverage'
     required: false
+  publish_tags:
+    description: 'Publish on tag push matching pattern (e.g. "v*")'
+    required: false
 
 runs:
   using: 'composite'
   steps:
     - name: Checkout repository 📥
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         token: ${{ inputs.github_token }}
 
     - name: Setup Node.js 🛠️
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: ${{ inputs.node_version }}
         registry-url: 'https://registry.npmjs.org/'
 
     - name: Install pnpm 📦
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v5
       with:
         version: ${{ inputs.pnpm_version }}
         run_install: false
@@ -99,6 +102,25 @@ runs:
         fi
       shell: bash
 
+    - name: Check tag publish 🏷️
+      id: tag_publish
+      if: ${{ inputs.publish_tags != null && startsWith(github.ref, 'refs/tags/') }}
+      run: |
+        TAG="${GITHUB_REF#refs/tags/}"
+        PATTERN="${{ inputs.publish_tags }}"
+        if [[ "$TAG" != $PATTERN ]]; then
+          echo "Tag $TAG does not match pattern $PATTERN"
+          exit 0
+        fi
+        BRANCH="${{ inputs.branch }}"
+        if ! git branch -r --contains HEAD | grep -q "origin/$BRANCH"; then
+          echo "Tag $TAG is not on $BRANCH branch, skipping publish"
+          exit 1
+        fi
+        echo "Tag $TAG matches pattern $PATTERN on $BRANCH"
+        echo "PUBLISH=true" >> $GITHUB_OUTPUT
+      shell: bash
+
     - name: Run build process 🏗️
       run: |
           ${{ inputs.build }}
@@ -112,7 +134,7 @@ runs:
 
     - name: Upload test coverage 📈
       if: inputs.codecov_token != ''
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         token: ${{ inputs.codecov_token }}
 
@@ -129,7 +151,7 @@ runs:
       shell: bash
 
     - name: Publish 🚀
-      if: steps.updates.outputs.PUBLISH == 'true'
+      if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true'
       run: |
         pnpm publish
       shell: bash
