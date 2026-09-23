@@ -35,9 +35,6 @@ inputs:
   email:
     description: 'User email to commit'
     required: false
-  npm_token:
-    description: 'Npm token to publish updates'
-    required: false
   codecov_token:
     description: 'Codecov token for uploading coverage'
     required: false
@@ -88,8 +85,8 @@ runs:
         fi
         echo "AUTOUPDATE=${{ inputs.autoupdate }}"
         echo "VERSION=${{ steps.env.outputs.VERSION }}"
-        if [ -z "${{ inputs.username }}" ] || [ -z "${{ inputs.email }}" ] || [ -z "${{ inputs.npm_token }}" ]; then
-          echo "Ensure username, email, and npm_token are set for autoupdate."
+        if [ -z "${{ inputs.username }}" ] || [ -z "${{ inputs.email }}" ]; then
+          echo "Ensure username and email are set for autoupdate."
           exit 1
         fi
         npx npm-check-updates -u --target ${{ inputs.autoupdate }}
@@ -138,6 +135,11 @@ runs:
       with:
         token: ${{ inputs.codecov_token }}
 
+    - name: Prepare npm publishing
+      if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true'
+      run: npm install --global npm@11.19.1
+      shell: bash
+
     - name: Commit 💾
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
@@ -153,7 +155,5 @@ runs:
     - name: Publish 🚀
       if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true'
       run: |
-        pnpm publish
+        npm publish
       shell: bash
-      env:
-        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
