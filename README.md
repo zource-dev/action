@@ -30,7 +30,7 @@ jobs:
       id-token: write
     steps:
       - name: Run CI/CD Pipeline
-        uses: zource-dev/action@37ea57b11ce117c7b84ed72e4e893621a8d19f5c
+        uses: zource-dev/action@v2
         with:
           release_tag: ${{ inputs.release_tag }}
           node_version: '24.14.1'
