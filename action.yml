@@ -35,14 +35,14 @@ inputs:
   email:
     description: 'User email to commit'
     required: false
-  npm_token:
-    description: 'Npm token to publish updates'
-    required: false
   codecov_token:
     description: 'Codecov token for uploading coverage'
     required: false
   publish_tags:
     description: 'Publish on tag push matching pattern (e.g. "v*")'
+    required: false
+  release_tag:
+    description: 'Existing version tag to publish on a manual workflow run'
     required: false
 
 runs:
@@ -52,6 +52,43 @@ runs:
       uses: actions/checkout@v6
       with:
         token: ${{ inputs.github_token }}
+        ref: ${{ inputs.release_tag || github.ref }}
+        fetch-depth: 0
+
+    - name: Verify recovery tag
+      id: recovery
+      if: inputs.release_tag != ''
+      env:
+        RELEASE_TAG: ${{ inputs.release_tag }}
+        RELEASE_BRANCH: ${{ inputs.branch }}
+      run: |
+        if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
+          echo "Release tag publishing requires a manual workflow run"
+          exit 1
+        fi
+        if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Release tag must be a version tag such as v1.2.3"
+          exit 1
+        fi
+        VERSION=$(jq -r .version package.json)
+        if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
+          echo "Release tag $RELEASE_TAG does not match package version $VERSION"
+          exit 1
+        fi
+        if ! TAG_COMMIT=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}" 2>/dev/null); then
+          echo "Release tag $RELEASE_TAG does not exist"
+          exit 1
+        fi
+        if [[ "$TAG_COMMIT" != "$(git rev-parse HEAD)" ]]; then
+          echo "Checkout does not match release tag $RELEASE_TAG"
+          exit 1
+        fi
+        if ! git merge-base --is-ancestor "$TAG_COMMIT" "refs/remotes/origin/$RELEASE_BRANCH"; then
+          echo "Release tag $RELEASE_TAG is not on $RELEASE_BRANCH"
+          exit 1
+        fi
+        echo "PUBLISH=true" >> "$GITHUB_OUTPUT"
+      shell: bash
 
     - name: Setup Node.js 🛠️
       uses: actions/setup-node@v6
@@ -80,7 +117,7 @@ runs:
 
     - name: Check updates 🔍
       id: updates
-      if: ${{ inputs.autoupdate != null && github.ref == format('refs/heads/{0}', inputs.branch) }}
+      if: ${{ inputs.release_tag == '' && inputs.autoupdate != null && github.ref == format('refs/heads/{0}', inputs.branch) }}
       run: |
         if ! [[ "${{ steps.env.outputs.VERSION }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "${{ steps.env.outputs.VERSION }} is not a release version"
@@ -88,8 +125,8 @@ runs:
         fi
         echo "AUTOUPDATE=${{ inputs.autoupdate }}"
         echo "VERSION=${{ steps.env.outputs.VERSION }}"
-        if [ -z "${{ inputs.username }}" ] || [ -z "${{ inputs.email }}" ] || [ -z "${{ inputs.npm_token }}" ]; then
-          echo "Ensure username, email, and npm_token are set for autoupdate."
+        if [ -z "${{ inputs.username }}" ] || [ -z "${{ inputs.email }}" ]; then
+          echo "Ensure username and email are set for autoupdate."
           exit 1
         fi
         npx npm-check-updates -u --target ${{ inputs.autoupdate }}
@@ -138,6 +175,11 @@ runs:
       with:
         token: ${{ inputs.codecov_token }}
 
+    - name: Prepare npm publishing
+      if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true' || steps.recovery.outputs.PUBLISH == 'true'
+      run: npm install --global npm@11.19.1
+      shell: bash
+
     - name: Commit 💾
       if: steps.updates.outputs.PUBLISH == 'true'
       run: |
@@ -151,9 +193,7 @@ runs:
       shell: bash
 
     - name: Publish 🚀
-      if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true'
+      if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true' || steps.recovery.outputs.PUBLISH == 'true'
       run: |
-        pnpm publish
+        npm publish
       shell: bash
-      env:
-        NODE_AUTH_TOKEN: ${{ inputs.npm_token }}
