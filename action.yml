@@ -49,7 +49,7 @@ runs:
   using: 'composite'
   steps:
     - name: Checkout repository 📥
-      uses: actions/checkout@v6
+      uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       with:
         token: ${{ inputs.github_token }}
         ref: ${{ inputs.release_tag || github.ref }}
@@ -91,13 +91,14 @@ runs:
       shell: bash
 
     - name: Setup Node.js 🛠️
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version: ${{ inputs.node_version }}
         registry-url: 'https://registry.npmjs.org/'
+        package-manager-cache: false
 
     - name: Install pnpm 📦
-      uses: pnpm/action-setup@v5
+      uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
       with:
         version: ${{ inputs.pnpm_version }}
         run_install: false
@@ -129,7 +130,7 @@ runs:
           echo "Ensure username and email are set for autoupdate."
           exit 1
         fi
-        npx npm-check-updates -u --target ${{ inputs.autoupdate }}
+        npx npm-check-updates@23.1.0 -u --target ${{ inputs.autoupdate }}
         if git status --porcelain | grep -q "package.json"; then
           echo "Updates were applied to package.json."
           pnpm install --no-frozen-lockfile
@@ -171,9 +172,17 @@ runs:
 
     - name: Upload test coverage 📈
       if: inputs.codecov_token != ''
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
       with:
         token: ${{ inputs.codecov_token }}
+
+    - name: Setup publishing runtime
+      if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true' || steps.recovery.outputs.PUBLISH == 'true'
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      with:
+        node-version: '24.18.0'
+        registry-url: 'https://registry.npmjs.org/'
+        package-manager-cache: false
 
     - name: Prepare npm publishing
       if: steps.updates.outputs.PUBLISH == 'true' || steps.tag_publish.outputs.PUBLISH == 'true' || steps.recovery.outputs.PUBLISH == 'true'
